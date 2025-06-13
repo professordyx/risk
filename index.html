@@ -294,7 +294,7 @@
                     cat_operational: "Operacionais e de Pessoas",
                     cat_vendor: "Relacionados a Fornecedores e Parceiros"
                 },
-                classifications: { Baixo: 'Baixo', Médio: 'Médio', Alto: 'Alto', Crítico: 'Crítico' },
+                classifications: { MuitoBaixo: 'Muito Baixo', Baixo: 'Baixo', Médio: 'Médio', Alto: 'Alto', MuitoAlto: 'Muito Alto' },
                 exportTxt: "Salvar como TXT",
                 exportHtml: "Salvar como HTML"
             },
@@ -342,7 +342,7 @@
                     cat_operational: "Operacionales y de Personas",
                     cat_vendor: "Relacionados con Proveedores y Socios"
                 },
-                classifications: { Baixo: 'Bajo', Médio: 'Medio', Alto: 'Alto', Crítico: 'Crítico' },
+                classifications: { MuitoBaixo: 'Muy Bajo', Baixo: 'Bajo', Médio: 'Medio', Alto: 'Alto', MuitoAlto: 'Muy Alto' },
                 exportTxt: "Guardar como TXT",
                 exportHtml: "Guardar como HTML"
             }
@@ -409,10 +409,11 @@
 
         function getRiskClassification(score) {
             const t = i18n[state.lang];
-            if (score >= 4.0) return { classification: t.classifications.Crítico, color: '#ef4444', textColor: 'text-red-600' };
-            if (score >= 3.0) return { classification: t.classifications.Alto, color: '#f97316', textColor: 'text-orange-600' };
-            if (score >= 2.0) return { classification: t.classifications.Médio, color: '#facc15', textColor: 'text-yellow-600' };
-            return { classification: t.classifications.Baixo, color: '#22c55e', textColor: 'text-green-600' };
+            if (score > 4.0) return { classification: t.classifications.MuitoAlto, color: '#ef4444', textColor: 'text-red-600' };
+            if (score > 3.0) return { classification: t.classifications.Alto, color: '#f97316', textColor: 'text-orange-600' };
+            if (score > 2.0) return { classification: t.classifications.Médio, color: '#facc15', textColor: 'text-yellow-600' };
+            if (score > 1.0) return { classification: t.classifications.Baixo, color: '#22c55e', textColor: 'text-green-600' };
+            return { classification: t.classifications.MuitoBaixo, color: '#86efac', textColor: 'text-green-400' };
         }
 
         async function callGemini(prompt) {
@@ -592,6 +593,9 @@
                         body { font-family: 'Inter', sans-serif; background-color: #f8fafc; padding: 2rem; }
                         .chart-container { position: relative; width: 100%; max-width: 800px; margin-left: auto; margin-right: auto; height: 450px; }
                         #dashboard { background-color: transparent !important; box-shadow: none !important; }
+                        table { width: 100%; border-collapse: collapse; }
+                        th, td { padding: 0.5rem; text-align: left; font-size: 0.75rem; }
+                        thead { background-color: #f1f5f9; }
                     </style>
                 </head>
                 <body>
@@ -599,21 +603,24 @@
                         ${dashboardHTML}
                     </div>
                     <script>
-                        // Recreate Matrix Chart
+                        const matrixData = ${JSON.stringify(matrixChartData)};
+                        const distData = ${JSON.stringify(distChartData)};
+                        const i18nData = ${JSON.stringify(i18n[state.lang])};
+
                         const matrixCtx = document.getElementById('riskMatrixChart').getContext('2d');
                         new Chart(matrixCtx, {
                             type: 'bubble',
-                            data: ${JSON.stringify(matrixChartData)},
-                            options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, max: 5.5, title: { display: true, text: '${i18n[state.lang].thProbability}' } }, x: { beginAtZero: true, max: 5.5, title: { display: true, text: '${i18n[state.lang].thImpact}' } } }, plugins: { tooltip: { callbacks: { label: function(c) { const d = c.dataset.data[c.dataIndex]; return d ? d.label + ': GR ' + d.r.toFixed(2) : ''; } } }, legend: { display: false } } }
+                            data: matrixData,
+                            options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, max: 5.5, title: { display: true, text: i18nData.thProbability } }, x: { beginAtZero: true, max: 5.5, title: { display: true, text: i18nData.thImpact } } }, plugins: { tooltip: { callbacks: { label: function(c) { const d = c.dataset.data[c.dataIndex]; return d ? d.label + ': GR ' + d.r.toFixed(2) : ''; } } }, legend: { display: false } } }
                         });
-                        // Recreate Distribution Chart
+                        
                         const distCtx = document.getElementById('riskDistributionChart').getContext('2d');
                         new Chart(distCtx, {
                              type: 'bar',
-                            data: ${JSON.stringify(distChartData)},
+                            data: distData,
                             options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', scales: { x: { beginAtZero: true } }, plugins: { legend: { display: false } } }
                         });
-                        // Remove export buttons from the exported file
+                        
                         document.getElementById('strategic-analysis-btn').remove();
                         document.getElementById('html-export-btn').remove();
                     <\/script>
@@ -671,7 +678,7 @@
 
         function updateDashboard() {
             const t = i18n[state.lang];
-            const classifications = { [t.classifications.Baixo]: 0, [t.classifications.Médio]: 0, [t.classifications.Alto]: 0, [t.classifications.Crítico]: 0 };
+            const classifications = { [t.classifications.MuitoBaixo]: 0, [t.classifications.Baixo]: 0, [t.classifications.Médio]: 0, [t.classifications.Alto]: 0, [t.classifications.MuitoAlto]: 0 };
             
             state.risks.forEach(risk => {
                 if(risk.classification) {
@@ -680,7 +687,7 @@
             });
 
             if (riskDistributionChart) {
-                riskDistributionChart.data.labels = Object.keys(t.classifications).map(k => t.classifications[k]);
+                riskDistributionChart.data.labels = Object.keys(classifications);
                 riskDistributionChart.data.datasets[0].data = Object.values(classifications);
                 riskDistributionChart.update();
             }
@@ -854,8 +861,32 @@
         }
         
         function attachGlobalListeners() {
+            const weightsContainer = document.getElementById('weights-container');
+            weightsContainer.addEventListener('input', (e) => {
+                 if(e.target.matches('input[type="range"]')) {
+                    const dimId = e.target.id.replace('weight-', '');
+                    state.weights[dimId] = parseInt(e.target.value);
+                    const total = Object.values(state.weights).reduce((sum, val) => sum + val, 0);
+                    
+                    if (total > 100) {
+                        const diff = total - 100;
+                        state.weights[dimId] -= diff;
+                        e.target.value = state.weights[dimId];
+                    }
+                    
+                    document.getElementById(`weight-value-${dimId}`).textContent = `${state.weights[dimId]}%`;
+                    
+                    const newTotal = Object.values(state.weights).reduce((sum, val) => sum + val, 0);
+                    const weightsTotalEl = document.getElementById('weights-total');
+                    weightsTotalEl.textContent = `${i18n[state.lang].total}: ${newTotal}%`;
+                    weightsTotalEl.classList.toggle('text-red-500', newTotal !== 100);
+                    weightsTotalEl.classList.toggle('text-green-600', newTotal === 100);
+
+                    updateAll();
+                 }
+            });
+
             const accordionContainer = document.getElementById('risk-accordion');
-            
             accordionContainer.addEventListener('click', (e) => {
                 const target = e.target;
                 if (target.closest('.accordion-btn')) {
@@ -960,7 +991,7 @@
             const ctxDist = document.getElementById('riskDistributionChart').getContext('2d');
             riskDistributionChart = new Chart(ctxDist, {
                 type: 'bar',
-                data: { labels: [], datasets: [{ label: '# de Riscos', data: [], backgroundColor: ['#22c55e', '#facc15', '#f97316', '#ef4444'] }] },
+                data: { labels: [], datasets: [{ label: '# de Riscos', data: [], backgroundColor: ['#86efac', '#22c55e', '#facc15', '#f97316', '#ef4444'] }] },
                 options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', scales: { x: { beginAtZero: true } }, plugins: { legend: { display: false } } }
             });
 
