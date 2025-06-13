@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ferramenta de Avaliação de Riscos com IA</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Neutrals with color-coded risk levels (Green, Yellow, Orange, Red) -->
+    <!-- Application Structure Plan: A task-oriented SPA. Starts with user-configurable impact weights. Main section is an interactive checklist where users evaluate each risk using sliders for Probability and Impact dimensions, with the ability to add/delete custom risks per category. A real-time dashboard with a sortable table, charts, and PDF export visualizes the results. Gemini API integration for mitigation plans and strategic analysis adds a layer of intelligent assistance. A language switcher (PT/ES) enhances usability. -->
+    <!-- Visualization & Content Choices:
+        - Risk Categories (5): Organized into interactive HTML accordion sections. Goal: Organize.
+        - Risk Items (Pre-defined + Custom): Presented as HTML cards with descriptions, now with a delete button. Goal: Inform/Input/Manage.
+        - P & I Evaluation: Interactive HTML sliders (1-5). Goal: Interact/Input.
+        - Impact Weights: Interactive HTML sliders. Goal: Configure/Interact.
+        - Custom Risk Form: HTML form within each category. Goal: Input/Customize.
+        - Dashboard Export: Button to trigger PDF export of the results section using jsPDF and html2canvas. Goal: Share/Output.
+        - Risk Prioritization: Sortable HTML table. Goal: Compare/Organize.
+        - Risk Distribution: Chart.js Bar Chart. Goal: Summarize/Compare.
+        - Risk Matrix: Chart.js Bubble Chart. Goal: Relationships/Analyze.
+        - Mitigation Plan Generation (Gemini): Renders Markdown, allows TXT/HTML export. Goal: Assist/Solve.
+        - Strategic Analysis (Gemini): Renders Markdown, allows TXT/HTML export. Goal: Synthesize/Advise.
+        - Language Selector: Buttons in the header. Goal: Accessibility/Usability.
+        - Justification: This combination provides a highly customizable, intelligent, and internationalized workflow with robust input, analysis, and output capabilities.
+     -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #ffffff; /* CHANGE: Set to white for better logo visibility */
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 400px;
+            max-height: 50vh;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 450px;
+            }
+        }
+        .slider-thumb::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .slider-thumb:hover::-webkit-slider-thumb {
+            background: #2563eb;
+        }
+        .slider-thumb::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            border: none;
+        }
+         .slider-thumb:hover::-moz-range-thumb {
+            background: #2563eb;
+        }
+        .table-header-sortable {
+            cursor: pointer;
+            position: relative;
+        }
+        .table-header-sortable::after {
+            content: ' \2195';
+            opacity: 0.5;
+            position: absolute;
+            right: 0.5rem;
+        }
+        .table-header-sortable.asc::after {
+            content: ' \2191';
+            opacity: 1;
+        }
+        .table-header-sortable.desc::after {
+            content: ' \2193';
+            opacity: 1;
+        }
+        .modal-overlay {
+            transition: opacity 0.3s ease;
+        }
+        .modal-box {
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .lang-btn.active {
+            box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px #3b82f6;
+        }
+        #modal-content ul {
+            list-style-type: disc;
+            padding-left: 20px;
+        }
+        #modal-content li {
+            margin-bottom: 0.5rem;
+        }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <div class="container mx-auto p-4 md:p-8">
+
+        <header class="text-center mb-12 relative">
+             <div class="mb-8">
+                <img src="https://i.postimg.cc/fLCJqqvC/Captura-de-Tela-2025-06-13-a-s-10-39-35.png" alt="Logo da Empresa" class="mx-auto h-16">
+            </div>
+            <div class="absolute top-0 right-0 flex space-x-2">
+                <button id="lang-pt" class="lang-btn p-1 rounded-full active" data-lang="pt">
+                    <img src="https://placehold.co/32x32/009c3b/FFFFFF?text=BR" alt="Bandeira do Brasil" class="w-8 h-8 rounded-full">
+                </button>
+                <button id="lang-es" class="lang-btn p-1 rounded-full" data-lang="es">
+                    <img src="https://placehold.co/32x32/c8102e/FFFFFF?text=ES" alt="Bandeira da Espanha" class="w-8 h-8 rounded-full">
+                </button>
+            </div>
+            <h1 id="main-title" class="text-4xl md:text-5xl font-bold text-slate-900 mb-4">Ferramenta de Avaliação de Riscos com IA</h1>
+            <p id="subtitle" class="text-lg text-slate-600 max-w-3xl mx-auto">
+                Configure os pesos, avalie cada risco e utilize a IA para gerar planos de mitigação e análises estratégicas instantaneamente.
+            </p>
+        </header>
+
+        <main>
+            <!-- Configuration Section -->
+            <section id="configuracao" class="mb-12 bg-slate-50 p-6 rounded-2xl shadow-lg">
+                <h2 id="step1-title" class="text-2xl font-bold mb-2 text-slate-900">Passo 1: Ponderação dos Critérios de Impacto</h2>
+                <p id="step1-desc" class="text-slate-600 mb-6">Ajuste os pesos para cada dimensão de impacto de acordo com as prioridades do seu projeto. A soma total deve ser 100%.</p>
+                <div id="weights-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <!-- Weight sliders will be inserted here by JS -->
+                </div>
+                <div class="mt-4 text-right font-bold text-lg" id="weights-total">Total: 100%</div>
+            </section>
+
+            <!-- Assessment Section -->
+            <section id="avaliacao" class="mb-12">
+                 <h2 id="step2-title" class="text-2xl font-bold mb-6 text-slate-900 text-center">Passo 2: Avaliação dos Riscos</h2>
+                <div id="risk-accordion" class="space-y-4">
+                    <!-- Risk categories and cards will be inserted here by JS -->
+                </div>
+            </section>
+
+            <!-- Dashboard Section -->
+            <section id="dashboard" class="bg-slate-50 p-6 rounded-2xl shadow-lg">
+                <h2 id="step3-title" class="text-3xl font-bold mb-8 text-slate-900 text-center">Passo 3: Painel de Resultados</h2>
+                 <div class="text-center mb-8 flex flex-wrap gap-4 justify-center">
+                    <button id="strategic-analysis-btn" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors shadow-md">
+                        ✨ Obter Análise Estratégica por IA
+                    </button>
+                     <button id="pdf-export-btn" class="bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 transition-colors shadow-md">
+                        📄 Exportar para PDF
+                    </button>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                    <div>
+                        <h3 id="chart1-title" class="text-xl font-bold mb-4 text-slate-800 text-center">Matriz de Risco (Probabilidade vs. Impacto)</h3>
+                        <div class="chart-container">
+                            <canvas id="riskMatrixChart"></canvas>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 id="chart2-title" class="text-xl font-bold mb-4 text-slate-800 text-center">Distribuição de Riscos por Classificação</h3>
+                        <div class="chart-container">
+                            <canvas id="riskDistributionChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-12">
+                     <h3 id="table-title" class="text-xl font-bold mb-4 text-slate-800 text-center">Tabela de Priorização de Riscos</h3>
+                     <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead class="bg-slate-100">
+                                <tr>
+                                    <th id="th-risk" class="p-3 text-sm font-semibold tracking-wide text-left">Risco</th>
+                                    <th id="th-category" class="p-3 text-sm font-semibold tracking-wide text-left">Categoria</th>
+                                    <th id="th-probability" class="p-3 text-sm font-semibold tracking-wide text-center table-header-sortable" data-sort="probabilidade">Probabilidade</th>
+                                    <th id="th-impact" class="p-3 text-sm font-semibold tracking-wide text-center table-header-sortable" data-sort="impacto">Impacto Ponderado</th>
+                                    <th id="th-degree" class="p-3 text-sm font-semibold tracking-wide text-center table-header-sortable desc" data-sort="grau">Grau de Risco</th>
+                                    <th id="th-classification" class="p-3 text-sm font-semibold tracking-wide text-center">Classificação</th>
+                                </tr>
+                            </thead>
+                            <tbody id="risk-table-body" class="divide-y divide-slate-200">
+                                <!-- Table rows will be inserted here by JS -->
+                            </tbody>
+                        </table>
+                     </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="text-center mt-16 pt-8 border-t border-slate-200">
+            <p id="footer-text" class="text-slate-500">Desenvolvido como uma ferramenta interativa com IA baseada na metodologia de avaliação de riscos.</p>
+             <div class="mt-8">
+                <img src="https://i.postimg.cc/d0BsJkTt/logo-branco.png" alt="Logo DiG" class="mx-auto h-12 mb-4">
+                <p>
+                    <a href="https://dioceliogoulart.com.br/" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">
+                        https://dioceliogoulart.com.br/
+                    </a>
+                </p>
+                <p id="copyright-text" class="mt-4 text-sm text-slate-500">
+                    ©️ 2025- TODOS OS DIREITOS RESERVADOS
+                </p>
+            </div>
+        </footer>
+    </div>
+    
+    <!-- Gemini Modal -->
+    <div id="gemini-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 modal-overlay opacity-0 pointer-events-none">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col modal-box transform scale-95 opacity-0">
+            <div class="flex justify-between items-center p-4 border-b border-slate-200">
+                <h3 id="modal-title" class="text-xl font-bold text-slate-900"></h3>
+                <button id="modal-close-btn" class="text-slate-500 hover:text-slate-800 text-3xl">&times;</button>
+            </div>
+            <div id="modal-content" class="p-6 overflow-y-auto">
+                <!-- Content will be injected here -->
+            </div>
+            <div id="modal-footer" class="p-4 border-t border-slate-200 text-right space-x-2 hidden">
+                 <!-- Export buttons will be injected here -->
+            </div>
+            <div id="modal-loader" class="p-6 flex-grow flex items-center justify-center hidden">
+                <div class="text-center">
+                    <div class="loader mx-auto"></div>
+                    <p id="loader-text" class="mt-4 text-slate-600">A IA está a pensar... Por favor, aguarde.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        const i18n = {
+            pt: {
+                mainTitle: "Ferramenta de Avaliação de Riscos com IA",
+                subtitle: "Configure os pesos, avalie cada risco e utilize a IA para gerar planos de mitigação e análises estratégicas instantaneamente.",
+                step1Title: "Passo 1: Ponderação dos Critérios de Impacto",
+                step1Desc: "Ajuste os pesos para cada dimensão de impacto de acordo com as prioridades do seu projeto. A soma total deve ser 100%.",
+                step2Title: "Passo 2: Avaliação dos Riscos",
+                step3Title: "Passo 3: Painel de Resultados",
+                strategicAnalysisBtn: "✨ Obter Análise Estratégica por IA",
+                pdfExportBtn: "📄 Exportar para PDF",
+                chart1Title: "Matriz de Risco (Probabilidade vs. Impacto)",
+                chart2Title: "Distribuição de Riscos por Classificação",
+                tableTitle: "Tabela de Priorização de Riscos",
+                thRisk: "Risco",
+                thCategory: "Categoria",
+                thProbability: "Probabilidade",
+                thImpact: "Impacto Ponderado",
+                thDegree: "Grau de Risco",
+                thClassification: "Classificação",
+                footerText: "Desenvolvido como uma ferramenta interativa com IA baseada na metodologia de avaliação de riscos.",
+                copyrightText: "©️ 2025- TODOS OS DIREITOS RESERVADOS",
+                loaderText: "A IA está a pensar... Por favor, aguarde.",
+                risks: "riscos",
+                risk: "Risco",
+                probability: "Probabilidade",
+                impact: "Impacto",
+                weightedImpact: "Impacto Ponderado",
+                riskDegree: "Grau de Risco",
+                classification: "Classificação",
+                mitigationPlanBtn: "✨ Gerar Plano de Mitigação",
+                mitigationPlanFor: "Plano de Mitigação para:",
+                strategicAnalysisFor: "Análise Estratégica dos Riscos por IA",
+                addRiskBtn: "➕ Adicionar Risco",
+                newRiskName: "Nome do Novo Risco",
+                newRiskDesc: "Descrição do Novo Risco",
+                saveBtn: "Salvar",
+                cancelBtn: "Cancelar",
+                total: "Total",
+                classifications: { Baixo: 'Baixo', Médio: 'Médio', Alto: 'Alto', Crítico: 'Crítico' },
+                exportTxt: "Salvar como TXT",
+                exportHtml: "Salvar como HTML"
+            },
+            es: {
+                mainTitle: "Herramienta de Evaluación de Riesgos con IA",
+                subtitle: "Configure los pesos, evalúe cada riesgo y utilice la IA para generar planes de mitigación y análisis estratégicos al instante.",
+                step1Title: "Paso 1: Ponderación de los Criterios de Impacto",
+                step1Desc: "Ajuste los pesos para cada dimensión de impacto según las prioridades de su proyecto. La suma total debe ser 100%.",
+                step2Title: "Paso 2: Evaluación de los Riesgos",
+                step3Title: "Paso 3: Panel de Resultados",
+                strategicAnalysisBtn: "✨ Obtener Análisis Estratégico por IA",
+                pdfExportBtn: "📄 Exportar a PDF",
+                chart1Title: "Matriz de Riesgo (Probabilidad vs. Impacto)",
+                chart2Title: "Distribución de Riesgos por Clasificación",
+                tableTitle: "Tabla de Priorización de Riesgos",
+                thRisk: "Riesgo",
+                thCategory: "Categoría",
+                thProbability: "Probabilidad",
+                thImpact: "Impacto Ponderado",
+                thDegree: "Grado de Riesgo",
+                thClassification: "Clasificación",
+                footerText: "Desarrollado como una herramienta interactiva con IA basada en la metodología de evaluación de riesgos.",
+                copyrightText: "©️ 2025- TODOS LOS DERECHOS RESERVADOS",
+                loaderText: "La IA está pensando... Por favor, espere.",
+                risks: "riesgos",
+                risk: "Riesgo",
+                probability: "Probabilidad",
+                impact: "Impacto",
+                weightedImpact: "Impacto Ponderado",
+                riskDegree: "Grado de Riesgo",
+                classification: "Clasificación",
+                mitigationPlanBtn: "✨ Generar Plan de Mitigación",
+                mitigationPlanFor: "Plan de Mitigación para:",
+                strategicAnalysisFor: "Análisis Estratégico de los Riesgos por IA",
+                addRiskBtn: "➕ Añadir Riesgo",
+                newRiskName: "Nombre del Nuevo Riesgo",
+                newRiskDesc: "Descripción del Nuevo Riesgo",
+                saveBtn: "Guardar",
+                cancelBtn: "Cancelar",
+                total: "Total",
+                classifications: { Baixo: 'Bajo', Médio: 'Medio', Alto: 'Alto', Crítico: 'Crítico' },
+                exportTxt: "Guardar como TXT",
+                exportHtml: "Guardar como HTML"
+            }
+        };
+
+        let riskData = [
+            { id: crypto.randomUUID(), category: 'Estratégicos e de Negócio', risk: 'Alinhamento com os Objetivos de Negócio', description: 'O novo ERP não suporta adequadamente os objetivos estratégicos de longo prazo da empresa.' },
+            { id: crypto.randomUUID(), category: 'Estratégicos e de Negócio', risk: 'Baixo Engajamento da Alta Gestão', description: 'Falta de apoio e patrocínio visível por parte dos executivos, resultando em baixa prioridade e recursos insuficientes.' },
+            { id: crypto.randomUUID(), category: 'Gerenciamento de Projeto e Execução', risk: 'Escopo Mal Definido ou "Scope Creep"', description: 'Aumento contínuo e não controlado das funcionalidades e requisitos do projeto.' },
+            { id: crypto.randomUUID(), category: 'Técnicos e de Tecnologia', risk: 'Problemas na Migração de Dados', description: 'Dados do sistema legado são migrados de forma incorreta, incompleta ou com perda de qualidade.' },
+            { id: crypto.randomUUID(), category: 'Operacionais e de Pessoas', risk: 'Treinamento Inadequado dos Usuários Finais', description: 'Usuários não recebem treinamento suficiente ou eficaz para operar o novo sistema corretamente.' },
+            { id: crypto.randomUUID(), category: 'Relacionados a Fornecedores e Parceiros', risk: 'Dependência Excessiva do Fornecedor', description: 'A empresa se torna excessivamente dependente do fornecedor para manutenção e futuras melhorias.' },
+        ];
+        
+        const state = {
+            lang: 'pt',
+            weights: { Custo: 30, Cronograma: 30, Qualidade: 20, Operações: 20 },
+            risks: [],
+            sortConfig: { key: 'grau', direction: 'desc' }
+        };
+
+        const impactDimensions = [
+            { id: 'Custo', name: 'Custo', name_es: 'Costo' },
+            { id: 'Cronograma', name: 'Cronograma', name_es: 'Cronograma' },
+            { id: 'Qualidade', name: 'Qualidade/Escopo', name_es: 'Calidad/Alcance' },
+            { id: 'Operações', name: 'Operações', name_es: 'Operaciones' }
+        ];
+
+        let riskMatrixChart, riskDistributionChart;
+        
+        function setLanguage(lang) {
+            state.lang = lang;
+            document.documentElement.lang = lang === 'pt' ? 'pt-BR' : lang;
+
+            document.querySelectorAll('.lang-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`lang-${lang}`).classList.add('active');
+
+            const t = i18n[lang];
+            document.getElementById('main-title').textContent = t.mainTitle;
+            document.getElementById('subtitle').textContent = t.subtitle;
+            document.getElementById('step1-title').textContent = t.step1Title;
+            document.getElementById('step1-desc').textContent = t.step1Desc;
+            document.getElementById('step2-title').textContent = t.step2Title;
+            document.getElementById('step3-title').textContent = t.step3Title;
+            document.getElementById('strategic-analysis-btn').textContent = t.strategicAnalysisBtn;
+            document.getElementById('pdf-export-btn').textContent = t.pdfExportBtn;
+            document.getElementById('chart1-title').textContent = t.chart1Title;
+            document.getElementById('chart2-title').textContent = t.chart2Title;
+            document.getElementById('table-title').textContent = t.tableTitle;
+            document.getElementById('th-risk').textContent = t.thRisk;
+            document.getElementById('th-category').textContent = t.thCategory;
+            document.getElementById('th-probability').textContent = t.thProbability;
+            document.getElementById('th-impact').textContent = t.thImpact;
+            document.getElementById('th-degree').textContent = t.thDegree;
+            document.getElementById('th-classification').textContent = t.thClassification;
+            document.getElementById('footer-text').textContent = t.footerText;
+            document.getElementById('copyright-text').textContent = t.copyrightText;
+            document.getElementById('loader-text').textContent = t.loaderText;
+            document.getElementById('weights-total').textContent = `${t.total}: ${Object.values(state.weights).reduce((s, v) => s + v, 0)}%`;
+            
+            rebuildUI();
+            updateAll();
+        }
+
+        function getRiskClassification(score) {
+            const t = i18n[state.lang];
+            if (score >= 4.0) return { classification: t.classifications.Crítico, color: '#ef4444', textColor: 'text-red-600' };
+            if (score >= 3.0) return { classification: t.classifications.Alto, color: '#f97316', textColor: 'text-orange-600' };
+            if (score >= 2.0) return { classification: t.classifications.Médio, color: '#facc15', textColor: 'text-yellow-600' };
+            return { classification: t.classifications.Baixo, color: '#22c55e', textColor: 'text-green-600' };
+        }
+
+        async function callGemini(prompt) {
+            const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+            const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!response.ok) {
+                    throw new Error(`API Error: ${response.statusText}`);
+                }
+                const result = await response.json();
+                if (result.candidates && result.candidates.length > 0 && result.candidates[0].content.parts.length > 0) {
+                    return result.candidates[0].content.parts[0].text;
+                }
+                throw new Error("Resposta da IA inválida ou vazia.");
+            } catch (error) {
+                console.error("Erro ao chamar a API Gemini:", error);
+                return `Ocorreu um erro ao comunicar com a IA. Por favor, tente novamente. Detalhe: ${error.message}`;
+            }
+        }
+        
+        function parseMarkdown(text) {
+            let html = text
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>');
+
+            let inList = false;
+            html = html.split('\n').map(line => {
+                if (line.trim().startsWith('- ') || line.trim().startsWith('* ')) {
+                    let listContent = `<li>${line.trim().substring(2)}</li>`;
+                    if (!inList) {
+                        listContent = '<ul>' + listContent;
+                        inList = true;
+                    }
+                    return listContent;
+                } else {
+                    if (inList) {
+                        inList = false;
+                        return `</ul>${line ? '<p>' + line + '</p>' : ''}`;
+                    }
+                    return line ? `<p>${line}</p>` : '';
+                }
+            }).join('');
+
+            if (inList) {
+                html += '</ul>';
+            }
+
+            return html.replace(/<p><\/p>/g, '');
+        }
+
+        function showModal(options) {
+            const { title, renderedContent, rawText, type } = options;
+            const modal = document.getElementById('gemini-modal');
+            const modalTitle = document.getElementById('modal-title');
+            const modalContent = document.getElementById('modal-content');
+            const modalFooter = document.getElementById('modal-footer');
+            const modalLoader = document.getElementById('modal-loader');
+            const modalBox = modal.querySelector('.modal-box');
+            
+            modalTitle.textContent = title;
+            modalFooter.innerHTML = '';
+            
+            if (renderedContent) {
+                modalContent.innerHTML = renderedContent;
+                modalContent.classList.remove('hidden');
+                modalLoader.classList.add('hidden');
+                if (type === 'mitigation' || type === 'analysis') {
+                    const t = i18n[state.lang];
+                    const fileNameSlug = title.toLowerCase().replace(/[:\s]+/g, '-').replace(/[^a-z0-9-]/g, '').substring(0, 50);
+                    modalFooter.innerHTML = `
+                        <button id="export-txt" class="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors">${t.exportTxt}</button>
+                        <button id="export-html" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">${t.exportHtml}</button>
+                    `;
+                    document.getElementById('export-txt').addEventListener('click', () => exportToFile(rawText, `${fileNameSlug}.txt`, 'text/plain'));
+                    document.getElementById('export-html').addEventListener('click', () => exportToFile(renderedContent, `${fileNameSlug}.html`, 'text/html'));
+                    modalFooter.classList.remove('hidden');
+                } else {
+                     modalFooter.classList.add('hidden');
+                }
+            } else {
+                modalContent.classList.add('hidden');
+                modalFooter.classList.add('hidden');
+                modalLoader.classList.remove('hidden');
+            }
+            
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            modalBox.classList.remove('scale-95', 'opacity-0');
+        }
+
+        function hideModal() {
+            const modal = document.getElementById('gemini-modal');
+            const modalBox = modal.querySelector('.modal-box');
+            modalBox.classList.add('scale-95', 'opacity-0');
+            modal.classList.add('opacity-0');
+            setTimeout(() => {
+                modal.classList.add('pointer-events-none');
+            }, 300);
+        }
+
+        function exportToFile(content, fileName, contentType) {
+            let fullContent = content;
+            if (contentType === 'text/html') {
+                fullContent = `<!DOCTYPE html><html lang="${state.lang}"><head><meta charset="UTF-8"><title>${fileName.replace('.html', '')}</title><style>body{font-family: sans-serif; line-height: 1.6;} ul{list-style-type: disc; padding-left: 20px;} li{margin-bottom: 0.5rem;}</style></head><body>${content}</body></html>`;
+            }
+            const blob = new Blob([fullContent], { type: contentType });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(a.href);
+        }
+
+        async function handleMitigationPlan(riskId) {
+            const riskIndex = state.risks.findIndex(r => r.id === riskId);
+            if (riskIndex === -1) return;
+            const risk = state.risks[riskIndex];
+            const t = i18n[state.lang];
+            const langName = state.lang === 'pt' ? 'português' : 'español';
+            const modalTitle = `${t.mitigationPlanFor} ${risk.name}`;
+            showModal({ title: modalTitle });
+            
+            const prompt = `Aja como um gestor de projetos sénior especialista em implementações de ERP. Para o seguinte risco, forneça um plano de mitigação detalhado e prático em ${langName}. O plano deve ser apresentado em formato de lista com marcadores (bullet points), usando **texto em negrito** para ênfase quando apropriado. Forneça SOMENTE a lista de ações, sem nenhuma frase introdutória ou de conclusão.\n\nRisco: ${risk.name}\nDescrição: ${riskData.find(rd => rd.id === riskId).description}`;
+            
+            const result = await callGemini(prompt);
+            const truncatedResult = result.substring(0, 4000);
+            const renderedHtml = parseMarkdown(truncatedResult);
+
+            showModal({ title: modalTitle, renderedContent: renderedHtml, rawText: truncatedResult, type: 'mitigation' });
+        }
+        
+        async function handleStrategicAnalysis() {
+            const t = i18n[state.lang];
+            const langName = state.lang === 'pt' ? 'português' : 'español';
+            const modalTitle = t.strategicAnalysisFor;
+            showModal({ title: modalTitle });
+            
+            const topRisks = [...state.risks].sort((a,b) => b.riskScore - a.riskScore).slice(0, 3);
+            
+            let prompt = `Aja como um consultor estratégico de TI especialista em projetos de ERP. Com base nos seguintes riscos de maior pontuação identificados num projeto, forneça uma análise estratégica concisa em ${langName}. A sua análise deve:\n1. Resumir o perfil de risco geral do projeto.\n2. Identificar possíveis interações ou efeitos cumulativos entre estes riscos.\n3. Sugerir as principais áreas de foco para o gestor do projeto.\n\nRiscos Principais:\n`;
+            
+            topRisks.forEach((risk, i) => {
+                prompt += `- Risco ${i+1}: ${risk.name} (Grau de Risco: ${risk.riskScore.toFixed(2)})\n`;
+            });
+            prompt += "\nForneça a resposta em texto corrido e bem estruturado. Use **texto em negrito** para destacar os pontos chave. Não inclua uma frase de abertura ou de conclusão, vá direto para a análise.";
+
+            const result = await callGemini(prompt);
+            const truncatedResult = result.substring(0, 4000);
+            const renderedHtml = parseMarkdown(truncatedResult);
+            showModal({ title: modalTitle, renderedContent: renderedHtml, rawText: truncatedResult, type: 'analysis' });
+        }
+
+        async function handleExportPDF() {
+            const { jsPDF } = window.jspdf;
+            const dashboard = document.getElementById('dashboard');
+            const loader = document.createElement('div');
+            loader.innerHTML = `<div class="fixed inset-0 z-50 flex items-center justify-center bg-white bg-opacity-75"><div class="loader"></div></div>`;
+            document.body.appendChild(loader);
+
+            const canvas = await html2canvas(dashboard, { 
+                scale: 2,
+                backgroundColor: '#ffffff',
+                useCORS: true
+            });
+
+            document.body.removeChild(loader);
+
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF({
+                orientation: 'p',
+                unit: 'px',
+                format: [canvas.width, canvas.height]
+            });
+            pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+            pdf.save('painel-de-resultados-riscos.pdf');
+        }
+        
+        function handleDeleteRisk(riskId) {
+            riskData = riskData.filter(r => r.id !== riskId);
+            state.risks = state.risks.filter(r => r.id !== riskId);
+            rebuildUI();
+            updateAll();
+        }
+
+        function calculateRiskScores() {
+            state.risks.forEach(risk => {
+                const weightedImpact = impactDimensions.reduce((acc, dim) => {
+                    return acc + (risk.impacts[dim.id] * (state.weights[dim.id] / 100));
+                }, 0);
+                risk.weightedImpact = weightedImpact;
+                risk.riskScore = (risk.probability + weightedImpact) / 2; // NEW CALCULATION
+                const { classification, color } = getRiskClassification(risk.riskScore);
+                risk.classification = classification;
+                risk.color = color;
+            });
+        }
+        
+        function updateAll() {
+            calculateRiskScores();
+            updateRiskCardsUI();
+            updateDashboard();
+            updateTable();
+        }
+
+        function updateRiskCardsUI() {
+            const t = i18n[state.lang];
+            state.risks.forEach((risk, index) => {
+                const riskCard = document.getElementById(`risk-card-${risk.id}`);
+                if(!riskCard) return;
+
+                riskCard.querySelector(`#weighted-impact-label-${risk.id}`).textContent = t.weightedImpact;
+                riskCard.querySelector(`#risk-score-label-${risk.id}`).textContent = t.riskDegree;
+                riskCard.querySelector(`#classification-label-${risk.id}`).textContent = t.classification;
+                riskCard.querySelector(`#weighted-impact-${risk.id}`).textContent = risk.weightedImpact.toFixed(2);
+                riskCard.querySelector(`#risk-score-${risk.id}`).textContent = risk.riskScore.toFixed(2);
+                
+                const { classification, textColor } = getRiskClassification(risk.riskScore);
+                const classificationEl = riskCard.querySelector(`#classification-${risk.id}`);
+                classificationEl.textContent = classification;
+                classificationEl.className = `font-bold ${textColor}`;
+            });
+        }
+
+        function updateDashboard() {
+            const t = i18n[state.lang];
+            const classifications = { [t.classifications.Baixo]: 0, [t.classifications.Médio]: 0, [t.classifications.Alto]: 0, [t.classifications.Crítico]: 0 };
+            
+            state.risks.forEach(risk => {
+                if(risk.classification) {
+                   classifications[risk.classification]++;
+                }
+            });
+
+            if (riskDistributionChart) {
+                riskDistributionChart.data.labels = Object.keys(t.classifications).map(k => t.classifications[k]);
+                riskDistributionChart.data.datasets[0].data = Object.values(classifications);
+                riskDistributionChart.update();
+            }
+
+            if (riskMatrixChart) {
+                riskMatrixChart.options.scales.y.title.text = t.thProbability;
+                riskMatrixChart.options.scales.x.title.text = t.thImpact;
+                riskMatrixChart.data.datasets[0].data = state.risks.map(r => ({
+                    x: r.weightedImpact,
+                    y: r.probability,
+                    r: r.riskScore * 2 + 2, // Adjusted radius for new score range
+                    label: r.name,
+                    backgroundColor: r.color,
+                    borderColor: r.color,
+                }));
+                riskMatrixChart.update();
+            }
+        }
+
+        function updateTable() {
+            const tableBody = document.getElementById('risk-table-body');
+            tableBody.innerHTML = '';
+            
+            const sortedRisks = [...state.risks].sort((a, b) => {
+                let aValue = a[state.sortConfig.key === 'grau' ? 'riskScore' : (state.sortConfig.key === 'impacto' ? 'weightedImpact' : 'probability')];
+                let bValue = b[state.sortConfig.key === 'grau' ? 'riskScore' : (state.sortConfig.key === 'impacto' ? 'weightedImpact' : 'probability')];
+                
+                if (aValue < bValue) return state.sortConfig.direction === 'asc' ? -1 : 1;
+                if (aValue > bValue) return state.sortConfig.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+
+            sortedRisks.forEach(risk => {
+                const { textColor, classification } = getRiskClassification(risk.riskScore);
+                tableBody.innerHTML += `
+                    <tr class="hover:bg-slate-50">
+                        <td class="p-3 text-sm text-slate-700">${risk.name}</td>
+                        <td class="p-3 text-sm text-slate-500">${risk.category}</td>
+                        <td class="p-3 text-sm text-slate-700 text-center">${risk.probability}</td>
+                        <td class="p-3 text-sm text-slate-700 text-center">${risk.weightedImpact.toFixed(2)}</td>
+                        <td class="p-3 text-sm text-slate-700 text-center font-bold">${risk.riskScore.toFixed(2)}</td>
+                        <td class="p-3 text-sm font-bold text-center ${textColor}">${classification}</td>
+                    </tr>
+                `;
+            });
+        }
+        
+        function createRiskCard(risk) {
+            const t = i18n[state.lang];
+            const riskState = state.risks.find(r => r.id === risk.id);
+            const riskCard = document.createElement('div');
+            riskCard.className = "border border-slate-200 p-4 rounded-lg bg-white";
+            riskCard.id = `risk-card-${risk.id}`;
+
+            let impactSlidersHTML = impactDimensions.map(dim => {
+                const dimName = state.lang === 'es' ? dim.name_es : dim.name;
+                return `
+                <div class="mb-2">
+                    <label for="impact-${dim.id}-${risk.id}" class="text-sm">${dimName}</label>
+                    <div class="flex items-center space-x-2">
+                        <input type="range" id="impact-${dim.id}-${risk.id}" min="1" max="5" value="${riskState.impacts[dim.id]}" data-risk-id="${risk.id}" data-dim-id="${dim.id}" class="w-full slider-thumb h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer">
+                        <span id="impact-value-${dim.id}-${risk.id}" class="font-semibold w-4 text-center">${riskState.impacts[dim.id]}</span>
+                    </div>
+                </div>`;
+            }).join('');
+
+            riskCard.innerHTML = `
+                <div class="flex justify-between items-start">
+                    <div class="flex-grow">
+                        <h4 class="font-bold text-md text-slate-900">${risk.risk}</h4>
+                        <p class="text-sm text-slate-500 mb-4">${risk.description}</p>
+                    </div>
+                    <button data-risk-id="${risk.id}" class="delete-btn text-red-400 hover:text-red-600 ml-2 p-1" title="Excluir Risco">
+                        <span class="text-2xl">🗑️</span>
+                    </button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                    <div>
+                        <h5 class="font-semibold mb-2">${t.probability}</h5>
+                        <div class="flex items-center space-x-2">
+                            <input type="range" id="prob-${risk.id}" min="1" max="5" value="${riskState.probability}" data-risk-id="${risk.id}" class="w-full slider-thumb h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer">
+                            <span id="prob-value-${risk.id}" class="font-semibold w-4 text-center">${riskState.probability}</span>
+                        </div>
+                    </div>
+                     <div>
+                        <h5 class="font-semibold mb-2">${t.impact}</h5>
+                        ${impactSlidersHTML}
+                    </div>
+                </div>
+                <div class="mt-4 pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center">
+                    <div class="grid grid-cols-3 text-center flex-grow mb-4 sm:mb-0">
+                         <div>
+                            <div id="weighted-impact-label-${risk.id}" class="text-xs text-slate-500">${t.weightedImpact}</div>
+                            <div id="weighted-impact-${risk.id}" class="font-bold text-lg text-slate-800">0.00</div>
+                        </div>
+                        <div>
+                            <div id="risk-score-label-${risk.id}" class="text-xs text-slate-500">${t.riskDegree}</div>
+                            <div id="risk-score-${risk.id}" class="font-bold text-lg text-slate-800">0.00</div>
+                        </div>
+                        <div>
+                            <div id="classification-label-${risk.id}" class="text-xs text-slate-500">${t.classification}</div>
+                            <div id="classification-${risk.id}" class="font-bold"></div>
+                        </div>
+                    </div>
+                     <div class="sm:ml-4 flex-shrink-0">
+                        <button data-risk-id="${risk.id}" class="mitigation-btn bg-blue-100 text-blue-700 text-sm font-bold py-2 px-3 rounded-lg hover:bg-blue-200 transition-colors">
+                            ${t.mitigationPlanBtn}
+                        </button>
+                    </div>
+                </div>
+            `;
+            return riskCard;
+        }
+
+        function rebuildUI() {
+            const t = i18n[state.lang];
+
+            const weightsContainer = document.getElementById('weights-container');
+            weightsContainer.innerHTML = '';
+             impactDimensions.forEach(dim => {
+                const dimName = state.lang === 'es' ? dim.name_es : dim.name;
+                weightsContainer.innerHTML += `
+                    <div>
+                        <label for="weight-${dim.id}" class="block text-sm font-medium text-slate-700">${dimName}</label>
+                        <div class="flex items-center space-x-4">
+                            <input type="range" id="weight-${dim.id}" min="0" max="100" step="5" value="${state.weights[dim.id]}" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer slider-thumb">
+                            <span id="weight-value-${dim.id}" class="font-bold text-slate-800 w-12 text-right">${state.weights[dim.id]}%</span>
+                        </div>
+                    </div>
+                `;
+            });
+
+            const accordionContainer = document.getElementById('risk-accordion');
+            accordionContainer.innerHTML = '';
+            const categories = [...new Set(riskData.map(item => item.category))];
+            
+            categories.forEach(category => {
+                const categoryId = category.replace(/[^a-zA-Z0-9]/g, '');
+                const categoryWrapper = document.createElement('div');
+                categoryWrapper.className = "bg-slate-50 rounded-xl shadow-md overflow-hidden";
+                const categoryRisksInState = riskData.filter(r => r.category === category);
+
+                categoryWrapper.innerHTML = `
+                    <button class="accordion-btn w-full p-5 text-left font-bold text-lg text-slate-800 bg-slate-100 hover:bg-slate-200 transition-colors flex justify-between items-center">
+                        <span>${category} (${categoryRisksInState.length} ${t.risks})</span>
+                        <svg class="w-6 h-6 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </button>
+                    <div class="accordion-content p-5 space-y-6 hidden"></div>
+                    <div class="p-4 border-t border-slate-200">
+                        <button class="add-risk-btn w-full text-blue-600 font-semibold hover:text-blue-800">${t.addRiskBtn}</button>
+                        <div class="add-risk-form hidden mt-4 space-y-3">
+                            <input type="text" placeholder="${t.newRiskName}" class="new-risk-name w-full p-2 border border-slate-300 rounded-md">
+                            <textarea placeholder="${t.newRiskDesc}" class="new-risk-desc w-full p-2 border border-slate-300 rounded-md"></textarea>
+                            <div class="flex justify-end space-x-2">
+                                <button class="cancel-risk-btn bg-slate-200 text-slate-800 px-4 py-2 rounded-md hover:bg-slate-300">${t.cancelBtn}</button>
+                                <button class="save-risk-btn bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700" data-category="${category}">${t.saveBtn}</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                accordionContainer.appendChild(categoryWrapper);
+                const contentDiv = categoryWrapper.querySelector('.accordion-content');
+
+                riskData.forEach((risk) => {
+                    if (risk.category === category) {
+                        contentDiv.appendChild(createRiskCard(risk));
+                    }
+                });
+            });
+        }
+        
+        function attachGlobalListeners() {
+            const accordionContainer = document.getElementById('risk-accordion');
+            
+            accordionContainer.addEventListener('click', (e) => {
+                const target = e.target;
+                if (target.closest('.accordion-btn')) {
+                    const btn = target.closest('.accordion-btn');
+                    btn.nextElementSibling.classList.toggle('hidden');
+                    btn.querySelector('svg').classList.toggle('rotate-180');
+                }
+                if (target.closest('.add-risk-btn')) {
+                    const btn = target.closest('.add-risk-btn');
+                    btn.classList.add('hidden');
+                    btn.nextElementSibling.classList.remove('hidden');
+                }
+                if (target.closest('.cancel-risk-btn')) {
+                    const form = target.closest('.add-risk-form');
+                    form.classList.add('hidden');
+                    form.previousElementSibling.classList.remove('hidden');
+                }
+                if (target.closest('.save-risk-btn')) {
+                    const form = target.closest('.add-risk-form');
+                    const category = target.dataset.category;
+                    const newName = form.querySelector('.new-risk-name').value;
+                    const newDesc = form.querySelector('.new-risk-desc').value;
+
+                    if (!newName || !newDesc) return;
+
+                    const newRisk = { id: crypto.randomUUID(), category: category, risk: newName, description: newDesc };
+                    riskData.push(newRisk);
+                    
+                    state.risks.push({
+                         id: newRisk.id,
+                         name: newRisk.risk, 
+                         category: newRisk.category, 
+                         probability: 3, 
+                         impacts: { Custo: 3, Cronograma: 3, Qualidade: 3, Operações: 3 }
+                    });
+                    
+                    rebuildUI();
+                    updateAll();
+                }
+                 if (target.closest('.delete-btn')) {
+                    const riskId = target.closest('.delete-btn').dataset.riskId;
+                    handleDeleteRisk(riskId);
+                }
+                if(target.closest('.mitigation-btn')) {
+                    const riskId = target.closest('.mitigation-btn').dataset.riskId;
+                    handleMitigationPlan(riskId);
+                }
+            });
+
+            accordionContainer.addEventListener('input', (e) => {
+                if(e.target.matches('input[type="range"]')) {
+                    const riskId = e.target.dataset.riskId;
+                    const riskState = state.risks.find(r => r.id === riskId);
+                    if (!riskState) return;
+
+                    if(e.target.id.startsWith('prob-')) {
+                        riskState.probability = parseInt(e.target.value);
+                        document.getElementById(`prob-value-${riskId}`).textContent = e.target.value;
+                    } else {
+                        const dimId = e.target.dataset.dimId;
+                        riskState.impacts[dimId] = parseInt(e.target.value);
+                        document.getElementById(`impact-value-${dimId}-${riskId}`).textContent = e.target.value;
+                    }
+                    updateAll();
+                }
+            });
+        }
+
+        function initialize() {
+            riskData.forEach((risk) => {
+                state.risks.push({ 
+                    id: risk.id,
+                    name: risk.risk, 
+                    category: risk.category, 
+                    probability: 3, 
+                    impacts: { Custo: 3, Cronograma: 3, Qualidade: 3, Operações: 3 }
+                });
+            });
+
+            document.getElementById('modal-close-btn').addEventListener('click', hideModal);
+            document.getElementById('gemini-modal').addEventListener('click', (e) => {
+                if (e.target.id === 'gemini-modal') hideModal();
+            });
+            document.getElementById('strategic-analysis-btn').addEventListener('click', handleStrategicAnalysis);
+            document.getElementById('pdf-export-btn').addEventListener('click', handleExportPDF);
+            document.getElementById('lang-pt').addEventListener('click', () => setLanguage('pt'));
+            document.getElementById('lang-es').addEventListener('click', () => setLanguage('es'));
+            
+            attachGlobalListeners();
+
+            const ctxMatrix = document.getElementById('riskMatrixChart').getContext('2d');
+            riskMatrixChart = new Chart(ctxMatrix, {
+                type: 'bubble',
+                data: { datasets: [{ label: 'Riscos', data: [] }] },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: { y: { beginAtZero: true, max: 5.5, title: { display: true } }, x: { beginAtZero: true, max: 5.5, title: { display: true } } },
+                    plugins: { tooltip: { callbacks: { label: (c) => { const d = c.dataset.data[c.dataIndex]; return d ? `${d.label}: GR ${d.r.toFixed(2)}` : ''; } } }, legend: { display: false } }
+                }
+            });
+
+            const ctxDist = document.getElementById('riskDistributionChart').getContext('2d');
+            riskDistributionChart = new Chart(ctxDist, {
+                type: 'bar',
+                data: { labels: [], datasets: [{ label: '# de Riscos', data: [], backgroundColor: ['#22c55e', '#facc15', '#f97316', '#ef4444'] }] },
+                options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', scales: { x: { beginAtZero: true } }, plugins: { legend: { display: false } } }
+            });
+
+            document.querySelectorAll('.table-header-sortable').forEach(header => {
+                header.addEventListener('click', () => {
+                    const key = header.dataset.sort;
+                    if (state.sortConfig.key === key) {
+                        state.sortConfig.direction = state.sortConfig.direction === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        state.sortConfig.key = key;
+                        state.sortConfig.direction = 'desc';
+                    }
+                    document.querySelectorAll('.table-header-sortable').forEach(h => h.classList.remove('asc', 'desc'));
+                    header.classList.add(state.sortConfig.direction);
+                    updateTable();
+                });
+            });
+            
+            rebuildUI();
+            updateAll();
+        }
+
+        window.onload = initialize;
+    </script>
+</body>
+</html>
