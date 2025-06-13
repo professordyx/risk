@@ -12,14 +12,14 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- Chosen Palette: Warm Neutrals with color-coded risk levels (Green, Yellow, Orange, Red) -->
-    <!-- Application Structure Plan: A task-oriented SPA. Starts with user-configurable impact weights. Main section is an interactive checklist where users evaluate each risk using sliders for Probability and Impact dimensions, with the ability to add/delete custom risks per category. A real-time dashboard with a sortable table, charts, and PDF export visualizes the results. Gemini API integration for mitigation plans and strategic analysis adds a layer of intelligent assistance. A language switcher (PT/ES) enhances usability. -->
+    <!-- Application Structure Plan: A task-oriented SPA. Starts with user-configurable impact weights. Main section is an interactive checklist where users evaluate each risk using sliders for Probability and Impact dimensions, with the ability to add/delete custom risks per category. A real-time dashboard with a sortable table, charts, and now a robust HTML export for the dashboard visualizes the results. Gemini API integration for mitigation plans and strategic analysis adds a layer of intelligent assistance. A language switcher (PT/ES) enhances usability. -->
     <!-- Visualization & Content Choices:
         - Risk Categories (5): Organized into interactive HTML accordion sections. Goal: Organize.
         - Risk Items (Pre-defined + Custom): Presented as HTML cards with descriptions, now with a delete button. Goal: Inform/Input/Manage.
         - P & I Evaluation: Interactive HTML sliders (1-5). Goal: Interact/Input.
         - Impact Weights: Interactive HTML sliders. Goal: Configure/Interact.
         - Custom Risk Form: HTML form within each category. Goal: Input/Customize.
-        - Dashboard Export: Button to trigger PDF export of the results section using jsPDF and html2canvas. Goal: Share/Output.
+        - Dashboard Export: Button changed to trigger a self-contained HTML export of the dashboard, which is more reliable than direct PDF generation. Goal: Share/Output.
         - Risk Prioritization: Sortable HTML table. Goal: Compare/Organize.
         - Risk Distribution: Chart.js Bar Chart. Goal: Summarize/Compare.
         - Risk Matrix: Chart.js Bubble Chart. Goal: Relationships/Analyze.
@@ -32,7 +32,7 @@
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #ffffff; /* CHANGE: Set to white for better logo visibility */
+            background-color: #ffffff;
         }
         .chart-container {
             position: relative;
@@ -168,8 +168,8 @@
                     <button id="strategic-analysis-btn" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors shadow-md">
                         ✨ Obter Análise Estratégica por IA
                     </button>
-                     <button id="pdf-export-btn" class="bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 transition-colors shadow-md">
-                        📄 Exportar para PDF
+                     <button id="html-export-btn" class="bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 transition-colors shadow-md">
+                        <span class="font-mono">&lt;/&gt;</span> Exportar Painel como HTML
                     </button>
                 </div>
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
@@ -192,12 +192,12 @@
                         <table class="w-full text-left border-collapse">
                             <thead class="bg-slate-100">
                                 <tr>
-                                    <th id="th-risk" class="p-3 text-sm font-semibold tracking-wide text-left">Risco</th>
-                                    <th id="th-category" class="p-3 text-sm font-semibold tracking-wide text-left">Categoria</th>
-                                    <th id="th-probability" class="p-3 text-sm font-semibold tracking-wide text-center table-header-sortable" data-sort="probabilidade">Probabilidade</th>
-                                    <th id="th-impact" class="p-3 text-sm font-semibold tracking-wide text-center table-header-sortable" data-sort="impacto">Impacto Ponderado</th>
-                                    <th id="th-degree" class="p-3 text-sm font-semibold tracking-wide text-center table-header-sortable desc" data-sort="grau">Grau de Risco</th>
-                                    <th id="th-classification" class="p-3 text-sm font-semibold tracking-wide text-center">Classificação</th>
+                                    <th id="th-risk" class="p-2 text-xs font-semibold tracking-wide text-left">Risco</th>
+                                    <th id="th-category" class="p-2 text-xs font-semibold tracking-wide text-left">Categoria</th>
+                                    <th id="th-probability" class="p-2 text-xs font-semibold tracking-wide text-center table-header-sortable" data-sort="probabilidade">Probabilidade</th>
+                                    <th id="th-impact" class="p-2 text-xs font-semibold tracking-wide text-center table-header-sortable" data-sort="impacto">Impacto Ponderado</th>
+                                    <th id="th-degree" class="p-2 text-xs font-semibold tracking-wide text-center table-header-sortable desc" data-sort="grau">Grau de Risco</th>
+                                    <th id="th-classification" class="p-2 text-xs font-semibold tracking-wide text-center">Classificação</th>
                                 </tr>
                             </thead>
                             <tbody id="risk-table-body" class="divide-y divide-slate-200">
@@ -258,7 +258,7 @@
                 step2Title: "Passo 2: Avaliação dos Riscos",
                 step3Title: "Passo 3: Painel de Resultados",
                 strategicAnalysisBtn: "✨ Obter Análise Estratégica por IA",
-                pdfExportBtn: "📄 Exportar para PDF",
+                htmlExportBtn: "<span class='font-mono'>&lt;/&gt;</span> Exportar Painel como HTML",
                 chart1Title: "Matriz de Risco (Probabilidade vs. Impacto)",
                 chart2Title: "Distribuição de Riscos por Classificação",
                 tableTitle: "Tabela de Priorização de Riscos",
@@ -287,6 +287,13 @@
                 saveBtn: "Salvar",
                 cancelBtn: "Cancelar",
                 total: "Total",
+                categories: {
+                    cat_strategic: "Estratégicos e de Negócio",
+                    cat_project: "Gerenciamento de Projeto e Execução",
+                    cat_technical: "Técnicos e de Tecnologia",
+                    cat_operational: "Operacionais e de Pessoas",
+                    cat_vendor: "Relacionados a Fornecedores e Parceiros"
+                },
                 classifications: { Baixo: 'Baixo', Médio: 'Médio', Alto: 'Alto', Crítico: 'Crítico' },
                 exportTxt: "Salvar como TXT",
                 exportHtml: "Salvar como HTML"
@@ -299,7 +306,7 @@
                 step2Title: "Paso 2: Evaluación de los Riesgos",
                 step3Title: "Paso 3: Panel de Resultados",
                 strategicAnalysisBtn: "✨ Obtener Análisis Estratégico por IA",
-                pdfExportBtn: "📄 Exportar a PDF",
+                htmlExportBtn: "<span class='font-mono'>&lt;/&gt;</span> Exportar Panel como HTML",
                 chart1Title: "Matriz de Riesgo (Probabilidad vs. Impacto)",
                 chart2Title: "Distribución de Riesgos por Clasificación",
                 tableTitle: "Tabla de Priorización de Riesgos",
@@ -328,6 +335,13 @@
                 saveBtn: "Guardar",
                 cancelBtn: "Cancelar",
                 total: "Total",
+                categories: {
+                    cat_strategic: "Estratégicos y de Negocio",
+                    cat_project: "Gestión de Proyecto y Ejecución",
+                    cat_technical: "Técnicos y de Tecnología",
+                    cat_operational: "Operacionales y de Personas",
+                    cat_vendor: "Relacionados con Proveedores y Socios"
+                },
                 classifications: { Baixo: 'Bajo', Médio: 'Medio', Alto: 'Alto', Crítico: 'Crítico' },
                 exportTxt: "Guardar como TXT",
                 exportHtml: "Guardar como HTML"
@@ -335,12 +349,12 @@
         };
 
         let riskData = [
-            { id: crypto.randomUUID(), category: 'Estratégicos e de Negócio', risk: 'Alinhamento com os Objetivos de Negócio', description: 'O novo ERP não suporta adequadamente os objetivos estratégicos de longo prazo da empresa.' },
-            { id: crypto.randomUUID(), category: 'Estratégicos e de Negócio', risk: 'Baixo Engajamento da Alta Gestão', description: 'Falta de apoio e patrocínio visível por parte dos executivos, resultando em baixa prioridade e recursos insuficientes.' },
-            { id: crypto.randomUUID(), category: 'Gerenciamento de Projeto e Execução', risk: 'Escopo Mal Definido ou "Scope Creep"', description: 'Aumento contínuo e não controlado das funcionalidades e requisitos do projeto.' },
-            { id: crypto.randomUUID(), category: 'Técnicos e de Tecnologia', risk: 'Problemas na Migração de Dados', description: 'Dados do sistema legado são migrados de forma incorreta, incompleta ou com perda de qualidade.' },
-            { id: crypto.randomUUID(), category: 'Operacionais e de Pessoas', risk: 'Treinamento Inadequado dos Usuários Finais', description: 'Usuários não recebem treinamento suficiente ou eficaz para operar o novo sistema corretamente.' },
-            { id: crypto.randomUUID(), category: 'Relacionados a Fornecedores e Parceiros', risk: 'Dependência Excessiva do Fornecedor', description: 'A empresa se torna excessivamente dependente do fornecedor para manutenção e futuras melhorias.' },
+            { id: crypto.randomUUID(), categoryKey: 'cat_strategic', risk: 'Alinhamento com os Objetivos de Negócio', description: 'O novo ERP não suporta adequadamente os objetivos estratégicos de longo prazo da empresa.' },
+            { id: crypto.randomUUID(), categoryKey: 'cat_strategic', risk: 'Baixo Engajamento da Alta Gestão', description: 'Falta de apoio e patrocínio visível por parte dos executivos, resultando em baixa prioridade e recursos insuficientes.' },
+            { id: crypto.randomUUID(), categoryKey: 'cat_project', risk: 'Escopo Mal Definido ou "Scope Creep"', description: 'Aumento contínuo e não controlado das funcionalidades e requisitos do projeto.' },
+            { id: crypto.randomUUID(), categoryKey: 'cat_technical', risk: 'Problemas na Migração de Dados', description: 'Dados do sistema legado são migrados de forma incorreta, incompleta ou com perda de qualidade.' },
+            { id: crypto.randomUUID(), categoryKey: 'cat_operational', risk: 'Treinamento Inadequado dos Usuários Finais', description: 'Usuários não recebem treinamento suficiente ou eficaz para operar o novo sistema corretamente.' },
+            { id: crypto.randomUUID(), categoryKey: 'cat_vendor', risk: 'Dependência Excessiva do Fornecedor', description: 'A empresa se torna excessivamente dependente do fornecedor para manutenção e futuras melhorias.' },
         ];
         
         const state = {
@@ -374,7 +388,7 @@
             document.getElementById('step2-title').textContent = t.step2Title;
             document.getElementById('step3-title').textContent = t.step3Title;
             document.getElementById('strategic-analysis-btn').textContent = t.strategicAnalysisBtn;
-            document.getElementById('pdf-export-btn').textContent = t.pdfExportBtn;
+            document.getElementById('html-export-btn').innerHTML = t.htmlExportBtn;
             document.getElementById('chart1-title').textContent = t.chart1Title;
             document.getElementById('chart2-title').textContent = t.chart2Title;
             document.getElementById('table-title').textContent = t.tableTitle;
@@ -558,30 +572,55 @@
             const renderedHtml = parseMarkdown(truncatedResult);
             showModal({ title: modalTitle, renderedContent: renderedHtml, rawText: truncatedResult, type: 'analysis' });
         }
+        
+        function handleExportHTML() {
+            const dashboardNode = document.getElementById('dashboard');
+            const dashboardHTML = dashboardNode.innerHTML;
 
-        async function handleExportPDF() {
-            const { jsPDF } = window.jspdf;
-            const dashboard = document.getElementById('dashboard');
-            const loader = document.createElement('div');
-            loader.innerHTML = `<div class="fixed inset-0 z-50 flex items-center justify-center bg-white bg-opacity-75"><div class="loader"></div></div>`;
-            document.body.appendChild(loader);
+            const matrixChartData = riskMatrixChart.data;
+            const distChartData = riskDistributionChart.data;
 
-            const canvas = await html2canvas(dashboard, { 
-                scale: 2,
-                backgroundColor: '#ffffff',
-                useCORS: true
-            });
-
-            document.body.removeChild(loader);
-
-            const imgData = canvas.toDataURL('image/png');
-            const pdf = new jsPDF({
-                orientation: 'p',
-                unit: 'px',
-                format: [canvas.width, canvas.height]
-            });
-            pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
-            pdf.save('painel-de-resultados-riscos.pdf');
+            const htmlContent = `
+                <!DOCTYPE html>
+                <html lang="${state.lang}">
+                <head>
+                    <meta charset="UTF-8">
+                    <title>Painel de Resultados - Avaliação de Riscos</title>
+                    <script src="https://cdn.tailwindcss.com"><\/script>
+                    <script src="https://cdn.jsdelivr.net/npm/chart.js"><\/script>
+                    <style>
+                        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; padding: 2rem; }
+                        .chart-container { position: relative; width: 100%; max-width: 800px; margin-left: auto; margin-right: auto; height: 450px; }
+                        #dashboard { background-color: transparent !important; box-shadow: none !important; }
+                    </style>
+                </head>
+                <body>
+                    <div id="dashboard" class="p-6">
+                        ${dashboardHTML}
+                    </div>
+                    <script>
+                        // Recreate Matrix Chart
+                        const matrixCtx = document.getElementById('riskMatrixChart').getContext('2d');
+                        new Chart(matrixCtx, {
+                            type: 'bubble',
+                            data: ${JSON.stringify(matrixChartData)},
+                            options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, max: 5.5, title: { display: true, text: '${i18n[state.lang].thProbability}' } }, x: { beginAtZero: true, max: 5.5, title: { display: true, text: '${i18n[state.lang].thImpact}' } } }, plugins: { tooltip: { callbacks: { label: function(c) { const d = c.dataset.data[c.dataIndex]; return d ? d.label + ': GR ' + d.r.toFixed(2) : ''; } } }, legend: { display: false } } }
+                        });
+                        // Recreate Distribution Chart
+                        const distCtx = document.getElementById('riskDistributionChart').getContext('2d');
+                        new Chart(distCtx, {
+                             type: 'bar',
+                            data: ${JSON.stringify(distChartData)},
+                            options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', scales: { x: { beginAtZero: true } }, plugins: { legend: { display: false } } }
+                        });
+                        // Remove export buttons from the exported file
+                        document.getElementById('strategic-analysis-btn').remove();
+                        document.getElementById('html-export-btn').remove();
+                    <\/script>
+                </body>
+                </html>
+            `;
+            exportToFile(htmlContent, 'painel-de-riscos.html', 'text/html');
         }
         
         function handleDeleteRisk(riskId) {
@@ -675,15 +714,16 @@
             });
 
             sortedRisks.forEach(risk => {
+                const t = i18n[state.lang];
                 const { textColor, classification } = getRiskClassification(risk.riskScore);
                 tableBody.innerHTML += `
                     <tr class="hover:bg-slate-50">
-                        <td class="p-3 text-sm text-slate-700">${risk.name}</td>
-                        <td class="p-3 text-sm text-slate-500">${risk.category}</td>
-                        <td class="p-3 text-sm text-slate-700 text-center">${risk.probability}</td>
-                        <td class="p-3 text-sm text-slate-700 text-center">${risk.weightedImpact.toFixed(2)}</td>
-                        <td class="p-3 text-sm text-slate-700 text-center font-bold">${risk.riskScore.toFixed(2)}</td>
-                        <td class="p-3 text-sm font-bold text-center ${textColor}">${classification}</td>
+                        <td class="p-2 text-xs text-slate-700">${risk.name}</td>
+                        <td class="p-2 text-xs text-slate-500">${t.categories[risk.categoryKey]}</td>
+                        <td class="p-2 text-xs text-slate-700 text-center">${risk.probability}</td>
+                        <td class="p-2 text-xs text-slate-700 text-center">${risk.weightedImpact.toFixed(2)}</td>
+                        <td class="p-2 text-xs text-slate-700 text-center font-bold">${risk.riskScore.toFixed(2)}</td>
+                        <td class="p-2 text-xs font-bold text-center ${textColor}">${classification}</td>
                     </tr>
                 `;
             });
@@ -776,17 +816,17 @@
 
             const accordionContainer = document.getElementById('risk-accordion');
             accordionContainer.innerHTML = '';
-            const categories = [...new Set(riskData.map(item => item.category))];
+            const categories = [...new Set(riskData.map(item => item.categoryKey))];
             
-            categories.forEach(category => {
-                const categoryId = category.replace(/[^a-zA-Z0-9]/g, '');
+            categories.forEach(categoryKey => {
+                const categoryName = i18n[state.lang].categories[categoryKey];
                 const categoryWrapper = document.createElement('div');
                 categoryWrapper.className = "bg-slate-50 rounded-xl shadow-md overflow-hidden";
-                const categoryRisksInState = riskData.filter(r => r.category === category);
+                const categoryRisksInState = riskData.filter(r => r.categoryKey === categoryKey);
 
                 categoryWrapper.innerHTML = `
                     <button class="accordion-btn w-full p-5 text-left font-bold text-lg text-slate-800 bg-slate-100 hover:bg-slate-200 transition-colors flex justify-between items-center">
-                        <span>${category} (${categoryRisksInState.length} ${t.risks})</span>
+                        <span>${categoryName} (${categoryRisksInState.length} ${t.risks})</span>
                         <svg class="w-6 h-6 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                     </button>
                     <div class="accordion-content p-5 space-y-6 hidden"></div>
@@ -797,7 +837,7 @@
                             <textarea placeholder="${t.newRiskDesc}" class="new-risk-desc w-full p-2 border border-slate-300 rounded-md"></textarea>
                             <div class="flex justify-end space-x-2">
                                 <button class="cancel-risk-btn bg-slate-200 text-slate-800 px-4 py-2 rounded-md hover:bg-slate-300">${t.cancelBtn}</button>
-                                <button class="save-risk-btn bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700" data-category="${category}">${t.saveBtn}</button>
+                                <button class="save-risk-btn bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700" data-category-key="${categoryKey}">${t.saveBtn}</button>
                             </div>
                         </div>
                     </div>
@@ -806,7 +846,7 @@
                 const contentDiv = categoryWrapper.querySelector('.accordion-content');
 
                 riskData.forEach((risk) => {
-                    if (risk.category === category) {
+                    if (risk.categoryKey === categoryKey) {
                         contentDiv.appendChild(createRiskCard(risk));
                     }
                 });
@@ -835,19 +875,19 @@
                 }
                 if (target.closest('.save-risk-btn')) {
                     const form = target.closest('.add-risk-form');
-                    const category = target.dataset.category;
+                    const categoryKey = target.dataset.categoryKey;
                     const newName = form.querySelector('.new-risk-name').value;
                     const newDesc = form.querySelector('.new-risk-desc').value;
 
                     if (!newName || !newDesc) return;
 
-                    const newRisk = { id: crypto.randomUUID(), category: category, risk: newName, description: newDesc };
+                    const newRisk = { id: crypto.randomUUID(), categoryKey: categoryKey, risk: newName, description: newDesc };
                     riskData.push(newRisk);
                     
                     state.risks.push({
                          id: newRisk.id,
                          name: newRisk.risk, 
-                         category: newRisk.category, 
+                         categoryKey: newRisk.categoryKey, 
                          probability: 3, 
                          impacts: { Custo: 3, Cronograma: 3, Qualidade: 3, Operações: 3 }
                     });
@@ -889,7 +929,7 @@
                 state.risks.push({ 
                     id: risk.id,
                     name: risk.risk, 
-                    category: risk.category, 
+                    categoryKey: risk.categoryKey, 
                     probability: 3, 
                     impacts: { Custo: 3, Cronograma: 3, Qualidade: 3, Operações: 3 }
                 });
@@ -900,7 +940,7 @@
                 if (e.target.id === 'gemini-modal') hideModal();
             });
             document.getElementById('strategic-analysis-btn').addEventListener('click', handleStrategicAnalysis);
-            document.getElementById('pdf-export-btn').addEventListener('click', handleExportPDF);
+            document.getElementById('html-export-btn').addEventListener('click', handleExportHTML);
             document.getElementById('lang-pt').addEventListener('click', () => setLanguage('pt'));
             document.getElementById('lang-es').addEventListener('click', () => setLanguage('es'));
             
